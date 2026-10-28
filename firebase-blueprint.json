@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile document",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": ["userId", "fullName", "email", "createdAt"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "Financial accounts tracked by user (e.g. Bank Account, Savings, Cash Wallet, Card)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "accountType": { "type": "string", "enum": ["BANK", "SAVINGS", "WALLET", "CARD"] },
+        "balancePaise": { "type": "integer" },
+        "isDefault": { "type": "boolean" },
+        "cardNumberMasked": { "type": "string" },
+        "colorHex": { "type": "string" },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "accountType", "balancePaise", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction: income, expense, or transfer between tracked accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["INCOME", "EXPENSE", "TRANSFER"] },
+        "title": { "type": "string" },
+        "amountPaise": { "type": "integer" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "accountId": { "type": "string" },
+        "destinationAccountId": { "type": "string" },
+        "description": { "type": "string" },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "type", "title", "amountPaise", "category", "date", "accountId", "createdAt"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Monthly category budget limit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "month": { "type": "string" },
+        "category": { "type": "string" },
+        "limitPaise": { "type": "integer" },
+        "spentPaise": { "type": "integer" },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "month", "category", "limitPaise", "createdAt"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Savings goal with target amount, current savings, and target date",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "targetAmountPaise": { "type": "integer" },
+        "savedAmountPaise": { "type": "integer" },
+        "targetDate": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "COMPLETED", "PAUSED"] },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "targetAmountPaise", "savedAmountPaise", "targetDate", "status", "createdAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences and security settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "currency": { "type": "string" },
+        "hideBalance": { "type": "boolean" },
+        "hasDemoData": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "currency", "hideBalance"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "Financial accounts tracked by user"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Income, expense, and transfer transactions"
+    },
+    "/users/{userId}/budgets/{budgetId}": {
+      "schema": "Budget",
+      "description": "Monthly budgets by category"
+    },
+    "/users/{userId}/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Savings goals"
+    },
+    "/users/{userId}/settings/{settingsId}": {
+      "schema": "UserSettings",
+      "description": "User settings"
+    }
+  }
+}

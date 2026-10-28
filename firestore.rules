@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100 &&
+             data.email is string && data.email.size() <= 150 &&
+             (!('photoUrl' in data) || data.photoUrl is string) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidAccount(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.accountType is string && (data.accountType in ['BANK', 'SAVINGS', 'WALLET', 'CARD']) &&
+             data.balancePaise is int &&
+             (!('isDefault' in data) || data.isDefault is bool) &&
+             (!('cardNumberMasked' in data) || (data.cardNumberMasked is string && data.cardNumberMasked.size() <= 30)) &&
+             (!('colorHex' in data) || (data.colorHex is string && data.colorHex.size() <= 20)) &&
+             (!('isDemo' in data) || data.isDemo is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidTransaction(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.type is string && (data.type in ['INCOME', 'EXPENSE', 'TRANSFER']) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.amountPaise is int && data.amountPaise > 0 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.date is string && data.date.size() <= 40 &&
+             data.accountId is string && isValidId(data.accountId) &&
+             (!('destinationAccountId' in data) || (data.destinationAccountId is string && (data.destinationAccountId == '' || isValidId(data.destinationAccountId)))) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('isDemo' in data) || data.isDemo is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidBudget(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.month is string && data.month.size() >= 4 && data.month.size() <= 10 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.limitPaise is int && data.limitPaise > 0 &&
+             (!('spentPaise' in data) || data.spentPaise is int) &&
+             (!('isDemo' in data) || data.isDemo is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidGoal(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.targetAmountPaise is int && data.targetAmountPaise > 0 &&
+             data.savedAmountPaise is int && data.savedAmountPaise >= 0 &&
+             data.targetDate is string && data.targetDate.size() <= 40 &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+             data.status is string && (data.status in ['ACTIVE', 'COMPLETED', 'PAUSED']) &&
+             (!('isDemo' in data) || data.isDemo is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidSettings(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.currency is string && data.currency.size() <= 10 &&
+             data.hideBalance is bool &&
+             (!('hasDemoData' in data) || data.hasDemoData is bool) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    // User document and nested subcollections
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data) &&
+                       request.resource.data.userId == resource.data.userId &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId);
+
+      match /accounts/{accountId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(accountId) && isValidAccount(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(accountId) && isValidAccount(request.resource.data) &&
+                         request.resource.data.id == resource.data.id &&
+                         request.resource.data.userId == resource.data.userId &&
+                         request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId) && isValidId(accountId);
+      }
+
+      match /transactions/{transactionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(request.resource.data) &&
+                         request.resource.data.id == resource.data.id &&
+                         request.resource.data.userId == resource.data.userId &&
+                         request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId) && isValidId(transactionId);
+      }
+
+      match /budgets/{budgetId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(budgetId) && isValidBudget(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(budgetId) && isValidBudget(request.resource.data) &&
+                         request.resource.data.id == resource.data.id &&
+                         request.resource.data.userId == resource.data.userId &&
+                         request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId) && isValidId(budgetId);
+      }
+
+      match /goals/{goalId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(goalId) && isValidGoal(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(goalId) && isValidGoal(request.resource.data) &&
+                         request.resource.data.id == resource.data.id &&
+                         request.resource.data.userId == resource.data.userId &&
+                         request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId) && isValidId(goalId);
+      }
+
+      match /settings/{settingsId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(settingsId) && isValidSettings(request.resource.data);
+        allow delete: if isOwner(userId) && isValidId(settingsId);
+      }
+    }
+  }
+}
